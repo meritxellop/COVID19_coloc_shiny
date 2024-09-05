@@ -4,7 +4,7 @@ library(tidyverse)
 # clumps_df: meta data about the clumps
 
 
-coloc_summary <- read.table("summary.per_colocalized_instance.November2023.v2.txt", header=TRUE, sep="\t")
+coloc_summary <- read.table("summary.per_colocalized_instance.February2024.txt", header=TRUE, sep="\t")
 
 covid_phenotypes <- c(
   "A2" = "A2: Confirmed COVID-19 with severe Respiratory Symptoms vs Population",

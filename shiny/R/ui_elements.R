@@ -1,162 +1,168 @@
 library(plotly)
 library(DT)
-# ui for top control panel
-top_control_ui <- tagList(
-  wellPanel(
-    fluidRow(
-      # column for choosing summary level
-      column(
-        4, 
-        selectInput(
-          "query_select",
-          "Summary Level:",
-          choices = c(
-            "Gene" = "Gene",
-            "Clump" = "Clump"
-          )
-        )
-      ),
-      # column for choosing qtl type
-      column(
-        3,
-        radioButtons(
-          "qtl_type_select",
-          "QTL Type:",
-          choices = c(
-            "All", "eQTL", "mQTL", "pQTL", "sQTL"
-          ),
-          selected = c(
-            "eQTL"
-          )
-        ), 
-        offset = 1
-      ),
-      # column for choosing pp4
-      column(
-        4,
-        sliderInput(
-          "pp4_min",
-          "PP4 Minimum Threshold:",
-          min = 0, max = 1, value = 0.75
-        )
-      )
-    )
-  )
-)
+library(bslib)
+library(bsicons)
+library(shinyWidgets)
+
+tab <- function(...) {
+  shiny::tabPanel(..., class = "p-2 border border-top-0 rounded-bottom")
+}
 
 # UI for gene level summary
 gene_summary_ui <- tagList(
-  wellPanel(
-    fluidRow(
-      # column for choosing gene
-      column(
-        6,
-        column(
-          11,
-          fluidRow(
-            radioButtons(
-              "gene_summary_level",
-              "Search by Gene or Molecular Phenotype:",
-              choices = c(
-                "Gene" = "Gene",
-                "Molecular Phenotype" = "MP"
-              ), inline = FALSE
-            )
-          ),
-          fluidRow(
-            selectInput(
-              "gene_select",
-              NULL,
-              choices = NULL
-            )
-          ), offset = 1
-        )
-      ),
-      # column for height slider and heatmap option
-      column(
-        6,
-        column(
-          10,
-          fluidRow(
-            sliderInput(
-              "height_scale_gene",
-              "Height scale:",
-              min = 0.9, max = 2, value = 1
-            )
-          ), 
-          fluidRow(
-            checkboxInput(
-              "max_pp4_gene",
-              "Heatmap - Max PP4 Per Gene-Tissue Association",
-              value = FALSE
-            )
-          ),
-          offset = 1
-        )
-      )
-    )
+  radioButtons(
+    "gene_summary_level",
+    strong("Search by Gene / Molecular Phenotype:"),
+    choices = c(
+      "Gene" = "Gene",
+      "Molecular Phenotype" = "MP"
+    ), inline = FALSE
   ),
-  # plot output
-  fluidRow(
-    tabsetPanel(
-      tabPanel(
-        "Gene-level",
-        plotlyOutput("plot_signif_map", height = 600)
-      ),
-      tabPanel(
-        "Clump-level",
-        plotlyOutput("plot_gene_eqtl_heatmap")
-      ),
-      tabPanel(
-        "Select Locus Zoom",
-        dataTableOutput("table_gene_eqtl_heatmap")
-      ),
-      tabPanel(
-        "Locus Zoom",
-          imageOutput("LocusZoomPlotGene")
-      )
-    )
+  selectInput(
+    "gene_select",
+    NULL,
+    choices = NULL
   )
 )
 
 # UI for clump level summary
 clump_summary_ui <- tagList(
-  wellPanel(
-    fluidRow(
-      # column for selecting summary level
-      column(4, selectInput(
-        "clump_select",
-        "Select Clump:",
-        choices = NULL
-      )),
-      # column for height slider
-      column(4, sliderInput(
-        "height_scale_clump",
-        "Height scale:",
-        min = 0.9, max = 2, value = 1
-      )),
-      # slider for heatmap option
-      column(4, checkboxInput(
-        "max_pp4_clump",
-        "Heatmap - Max PP4 Per Gene-QTL Map",
-        value = FALSE
-      ))
+  selectInput(
+    "clump_select",
+    strong("Select Clump:"),
+    choices = NULL
+  )
+)
+
+# ui for top control panel
+top_control_ui <- tagList(
+  radioButtons(
+    "query_select",
+    strong("Summary Level:"),
+    choices = c(
+      "Gene" = "Gene",
+      "Clump" = "Clump"
+    ),
+    inline=TRUE
+  ),
+  conditionalPanel(
+    "input.query_select == 'Gene'",
+    gene_summary_ui
+  ),
+  conditionalPanel(
+    "input.query_select == 'Clump'",
+    clump_summary_ui
+  ),
+  radioButtons(
+    "qtl_type_select",
+    strong("QTL Type:"),
+    choices = c(
+      "All", "eQTL", "mQTL", "pQTL", "sQTL"
+    ),
+    selected = c(
+      "eQTL"
     )
   ),
-  # plot output
-  fluidRow(
-    tabsetPanel(
-      tabPanel(
-        "Clump-level",
-        plotlyOutput("plot_clump_eqtl_heatmap")
+  sliderInput(
+    "pp4_min",
+    strong("PP4 Minimum Threshold:"),
+    min = 0, max = 1, value = 0.75
+  )
+)
+
+gene_summary_main <- tagList(
+  tabsetPanel(
+    tab(
+      "Gene-level",
+      card(
+        plotlyOutput("plot_signif_map", height = 600)
+      )
+    ),
+    tab(
+      "Clump-level",
+      layout_columns(
+        dropdownButton(
+          sliderInput(
+            "height_scale_gene_summ",
+            "Heatmap Height scale:",
+            min = 0.9, max = 2, value = 1
+          ),
+          checkboxInput(
+            "max_pp4_gene_summ",
+            "Heatmap - Display only Max PP4 Per Gene-QTL Map",
+            value = FALSE
+          ),
+          circle = FALSE,
+          status = "info",
+          size = "sm",
+          icon = bs_icon("gear-fill")
+        ),
+        card(
+          plotlyOutput("plot_gene_eqtl_heatmap"),
+          full_screen = TRUE
+        ), 
+        col_widths = c(1,-11,12)
+      )
+    ),
+    tab(
+      "Locus Zoom",
+      br(),
+      card(
+        div(
+          dataTableOutput("table_gene_eqtl_heatmap")
+        )
       ),
-      tabPanel(
-        "Select Locus Zoom",
-        dataTableOutput("table_clump_eqtl_heatmap")
+      hr(),
+      card(
+        card_header("Locus Zoom Plot"),
+        imageOutput("LocusZoomPlotGene"),
+        height = 1000
+      )
+    )
+  )
+)
+
+clump_summary_main <- tagList(
+  tabsetPanel(
+    tab(
+      "Clump-level",
+      layout_columns(
+        dropdownButton(
+          sliderInput(
+            "height_scale_clump_summ",
+            "Heatmap Height scale:",
+            min = 0.9, max = 2, value = 1
+          ),
+          checkboxInput(
+            "max_pp4_clump_summ",
+            "Heatmap - Display only Max PP4 Per Gene-QTL Map",
+            value = FALSE
+          ),
+          circle = FALSE,
+          status = "info",
+          size = "sm",
+          icon = bs_icon("gear-fill")
+        ),
+        card(
+          plotlyOutput("plot_clump_eqtl_heatmap"),
+          full_screen = TRUE
+        ), 
+        col_widths = c(1,-11,12)
+      )
+    ),
+    tab(
+      "Locus Zoom",
+      br(),
+      card(
+        div(
+          dataTableOutput("table_clump_eqtl_heatmap")
+        )
       ),
-      tabPanel(
-        "Locus Zoom",
-        imageOutput("LocusZoomPlotClump")
+      hr(),
+      card(
+        card_header("Locus Zoom Plot"),
+        imageOutput("LocusZoomPlotClump"),
+        height = 1000
       )
     )
   )

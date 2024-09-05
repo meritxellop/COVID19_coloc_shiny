@@ -1,26 +1,58 @@
-library(shiny)
+#library(shiny,lib.loc='/usr/apps/general/spack/sw/linux-rhel8-zen/gcc-11.3.0/r-4.2.0-2liuw4vmic27cmqhyyt6jmvwbezn6mlx/rlib/R/library')
+library(shiny,lib.loc='/ui/abv/olivamx2/R/x86_64-pc-linux-gnu-library/4.2')
 library(tidyverse)
 library(heatmaply)
 library(plotly)
 library(DT)
+library(shinyWidgets)
+library(bslib)
 
 # additional UI script saved in R/ui_elements.R
-ui <- fluidPage(
-  titlePanel(
-    title = "COVID-19 Coloc Results Explorer"
+ui <- page_navbar(
+  bg = "#373a3c",
+  theme = bs_theme(preset = "cosmo"),
+  title = "COVID-19 Coloc Results Explorer",
+  nav_panel(
+    title = "About",
+    page_fixed(
+      card(
+        card_title("About"),
+        card_body(
+          "This app is designed to explore the results of colocalization
+          analysis of COVID-19 GWAS phenotypes (risk and severity) and QTLs. The app allows users
+          to explore the colocalization results by gene or by clump (GWAS hit corresponding to particular genomic region), and stratify by QTL type (eQTL expression, sQTL splicing, mQTL DNA methylation, pQTL protein abundance).
+          The user can access the landscape of of GWAS-QTL colocalization posterior probabilities
+          for each gene in a clump across QTL maps, contextualized by 
+          colocalization results of nearby genes. Colocalization summary statistics, and visualization of corresponding 
+          GWAS and QTL p-value landscape ith corresponding genomic context, are also provided."
+        )
+      )
+    )
   ),
-  top_control_ui,
-  conditionalPanel(
-    "input.query_select == 'Gene'",
-    gene_summary_ui
-  ),
-  conditionalPanel(
-    "input.query_select == 'Clump'",
-    clump_summary_ui
+nav_panel(
+  title = "Explore",
+  page_fixed(
+    layout_sidebar(
+      sidebar = sidebar(
+        title = h2("Controls"),
+        top_control_ui,
+      ),
+      conditionalPanel(
+        "input.query_select == 'Gene'",
+        gene_summary_main
+      ),
+      conditionalPanel(
+        "input.query_select == 'Clump'",
+        clump_summary_main
+      )
+    )
   )
 )
+)
+  
 
 server <- function(input, output, session) {
+  # bs_themer()
   # subset coloc summary data frames by QTL type and PP4
   coloc_summary_server <- reactive({
     if (input$qtl_type_select != "All") {
@@ -87,20 +119,40 @@ server <- function(input, output, session) {
   # plot heatmap of posterior probabilities for Gene vs QTL Map for specifed clump
   output$plot_gene_eqtl_heatmap <- renderPlotly({
     validate(need(myclumps(), label = "Clump"))
-    plot_heatmaply_for_clump(coloc_summary_server(), myclumps(), clumps_df, gene_pos_df, input$height_scale_gene, choose_max_pp4_per_gene = input$max_pp4_gene)
+    plot_heatmaply_for_clump(
+      coloc_summary_server(), 
+      myclumps(), 
+      clumps_df, 
+      gene_pos_df, 
+      input$height_scale_gene_summ, 
+      choose_max_pp4_per_gene = input$max_pp4_gene_summ
+    )
+  })
+  
+  # plot heatmap of posterior prbability for genes in a clump
+  output$plot_clump_eqtl_heatmap <- renderPlotly({
+    validate(need(myclumps(), label = "Clump"))
+    plot_heatmaply_for_clump(
+      coloc_summary_server(), 
+      myclumps(), 
+      clumps_df, 
+      gene_pos_df, 
+      input$height_scale_clump_summ, 
+      choose_max_pp4_per_gene = input$max_pp4_clump_summ
+    )
   })
   
   # Print QTL summary stats table
-  output$table_gene_eqtl_heatmap <- renderDataTable({
+  output$table_gene_eqtl_heatmap <- DT::renderDataTable({
     validate(need(mygene(), label = "Gene"))
     if(gene_summary_level() == 'Gene') printtable <- unique(coloc_summary[coloc_summary$Gene == mygene(),])
     if(gene_summary_level() == 'MP') printtable <- unique(coloc_summary[coloc_summary$MP == mygene(),])
     if(input$qtl_type_select != "All") printtable <- printtable[printtable$QTL_type == input$qtl_type_select,]
     printtable <- printtable[printtable$PP4 >= input$pp4_min,]
     printtable
-      }, selection='single')
+  }, selection='single')
   
-  output$table_clump_eqtl_heatmap <- renderDataTable({
+  output$table_clump_eqtl_heatmap <- DT::renderDataTable({
     validate(need(myclumps(), label = "Clump"))
     printtable <- unique(coloc_summary[coloc_summary$GWAS_clump == myclumps(),])
     if(input$qtl_type_select != "All") printtable <- printtable[printtable$QTL_type == input$qtl_type_select,]
@@ -108,7 +160,9 @@ server <- function(input, output, session) {
     printtable
   }, selection='single')
   
+  # Plot locus zoom plots
   output$LocusZoomPlotGene <- renderImage({
+    req(length(input$table_gene_eqtl_heatmap_rows_selected) > 0)
     validate(need(mygene(), label = "Gene"))
     if(gene_summary_level() == 'Gene') printtable <- unique(coloc_summary[coloc_summary$Gene == mygene(),])
     if(gene_summary_level() == 'MP') printtable <- unique(coloc_summary[coloc_summary$MP == mygene(),])
@@ -120,6 +174,7 @@ server <- function(input, output, session) {
       }, deleteFile = F)
 
   output$LocusZoomPlotClump <- renderImage({
+    req(length(input$table_clump_eqtl_heatmap_rows_selected) > 0)
     validate(need(myclumps(), label = "Clump"))
     printtable <- unique(coloc_summary[coloc_summary$GWAS_clump == myclumps(),])
     if(input$qtl_type_select != "All") printtable <- printtable[printtable$QTL_type == input$qtl_type_select,]
@@ -127,13 +182,7 @@ server <- function(input, output, session) {
     path <- paste0(printtable[input$table_clump_eqtl_heatmap_rows_selected,'LZplot'])
     print(path)
     list(src=path, width = 500)
-  }, deleteFile = F)  
-  
-  # plot heatmap of posterior prbability for genes in a clump
-  output$plot_clump_eqtl_heatmap <- renderPlotly({
-    validate(need(myclumps(), label = "Clump"))
-    plot_heatmaply_for_clump(coloc_summary_server(), myclumps(), clumps_df, gene_pos_df, input$height_scale_clump, choose_max_pp4_per_gene = input$max_pp4_clump)
-  })
+  }, deleteFile = F)
 }
 
 shinyApp(ui, server)
