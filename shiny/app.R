@@ -24,7 +24,8 @@ ui <- page_navbar(
           The user can access the landscape of of GWAS-QTL colocalization posterior probabilities
           for each gene in a clump across QTL maps, contextualized by 
           colocalization results of nearby genes. Colocalization summary statistics, and visualization of corresponding 
-          GWAS and QTL p-value landscape ith corresponding genomic context, are also provided."
+          GWAS and QTL p-value landscape ith corresponding genomic context, are also provided.
+          For full description of findings and methodology please see Oliva et al. 2024 (https://www.medrxiv.org/content/10.1101/2024.09.05.24313137v1)"
         )
       )
     )
